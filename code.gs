@@ -261,7 +261,7 @@ function saveInterviewResult(resultData) {
       const masterHeaders = masterValues[0];
       const mTypeIndex = masterHeaders.indexOf("対象区分");
       const mStatusNameIndex = masterHeaders.indexOf("ステータス名");
-      const mActionIndex = masterHeaders.indexOf("デフォルトネクストアクション");
+      const mOffsetActionIndex = masterHeaders.indexOf("デフォルトネクストアクション");
 
       for (let i = 1; i < candidateValues.length; i++) {
         if (candidateValues[i][idIndex] === resultData.candidateId) {
@@ -273,7 +273,7 @@ function saveInterviewResult(resultData) {
           let nextAction = currentAction;
           let targetStatusName = "";
 
-          // 🌟 判定結果に応じたターゲットのステータス名を設定
+          // 判定結果に応じたターゲットのステータス名を設定
           if (resultData.overallResult === 'ok') {
             if (resultData.interviewType === '一次面談') targetStatusName = '⑤一次選考合格';
             else if (resultData.interviewType === '二次選考') targetStatusName = '⑦二次選考合格';
@@ -281,26 +281,31 @@ function saveInterviewResult(resultData) {
           } else if (resultData.overallResult === 'ng') {
             targetStatusName = '[終了] 選考不合格';
           } else if (resultData.overallResult === 'hold') {
-            // 保留の場合はステータス維持、アクションのみ「社内協議」
-            nextStatus = currentStatus;
-            nextAction = '社内協議';
+            // 🌟 修正内容：保留の場合も共通ロジックでマスタ検索を走らせる
+            targetStatusName = '選考保留中';
           }
 
-          // 🌟 マスタから対象区分とステータス名に合致する行を検索
+          // マスタから対象区分とステータス名に合致する行を検索
           if (targetStatusName) {
             let found = false;
             for (let j = 1; j < masterValues.length; j++) {
               if (masterValues[j][mTypeIndex] === currentType && masterValues[j][mStatusNameIndex] === targetStatusName) {
                 nextStatus = targetStatusName;
-                nextAction = masterValues[j][mActionIndex] || "";
+                nextAction = masterValues[j][mOffsetActionIndex] || "";
                 found = true;
                 break;
               }
             }
-            // 見つからない場合は現在の値を維持
+            // 🌟 見つからない場合のフォールバック処理
             if (!found) {
-              nextStatus = currentStatus;
-              nextAction = currentAction;
+              if (resultData.overallResult === 'hold') {
+                // 保留マスタが未登録の場合はステータス維持・「社内協議」
+                nextStatus = currentStatus;
+                nextAction = '社内協議';
+              } else {
+                nextStatus = currentStatus;
+                nextAction = currentAction;
+              }
             }
           }
 
