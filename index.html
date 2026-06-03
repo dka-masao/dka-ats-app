@@ -103,13 +103,11 @@
                   <select className="w-full p-2.5 border border-blue-200 rounded-xl bg-white font-black text-blue-700 text-sm outline-none" value={formData.現在のステータス} onChange={handleStatusChange}>
                     {currentStatusMaster.map(status => <option key={status.ステータス名} value={status.ステータス名}>{status.ステータス名}</option>)}
                   </select>
-                  {/* 🌟 控えめなステータス説明テキスト */}
                   {formData.現在のステータス && currentStatusMaster.find(m => m['ステータス名'] === formData.現在のステータス)?.['ステータス説明'] && <p className="text-[11px] text-slate-500 mt-1.5 leading-snug break-words">💡 {currentStatusMaster.find(m => m['ステータス名'] === formData.現在のステータス)['ステータス説明']}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-blue-900 mb-1">自動セットされたネクストアクション（手動修正可）</label>
                   <input type="text" className="w-full p-2.5 border border-blue-200 rounded-xl font-bold bg-white text-slate-700" value={formData.ネクストアクション} onChange={(e)=>setFormData({...formData, ネクストアクション:e.target.value})} />
-                  {/* 🌟 控えめなアクション解説テキスト */}
                   {formData.現在のステータス && currentStatusMaster.find(m => m['ステータス名'] === formData.現在のステータス)?.['ネクストアクション解説'] && <p className="text-[11px] text-slate-500 mt-1.5 leading-snug break-words">👉 {currentStatusMaster.find(m => m['ステータス名'] === formData.現在のステータス)['ネクストアクション解説']}</p>}
                 </div>
               </div>
@@ -134,7 +132,6 @@
       const currentStatusMaster = formData.採用区分 === '新卒' ? statusOptionsNew : statusOptionsMid;
       const isDeclined = formData.現在のステータス.includes('辞退') || formData.現在のステータス.includes('不合格') || formData.現在のステータス === '採用辞退';
 
-      // 🌟 現在のステータスの解説を取得
       const matchedStatus = currentStatusMaster.find(m => m['ステータス名'] === formData.現在のステータス);
       const statusDesc = matchedStatus ? matchedStatus['ステータス説明'] : '';
       const actionDesc = matchedStatus ? matchedStatus['ネクストアクション解説'] : '';
@@ -187,13 +184,11 @@
                   <select className="w-full p-2.5 border border-blue-200 rounded-xl font-bold text-blue-700 bg-white" value={formData.現在のステータス} onChange={handleStatusChange}>
                     {currentStatusMaster.map(status => <option key={status.ステータス名} value={status.ステータス名}>{status.ステータス名}</option>)}
                   </select>
-                  {/* 🌟 控えめなステータス説明テキスト */}
                   {statusDesc && <p className="text-[11px] text-slate-500 mt-1.5 leading-snug break-words">💡 {statusDesc}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-blue-900 mb-1">ネクストアクション（手動修正可）</label>
                   <input type="text" className="w-full p-2.5 border border-blue-200 rounded-xl font-bold bg-white text-slate-700" value={formData.ネクストアクション} onChange={(e)=>setFormData({...formData, ネクストアクション:e.target.value})} />
-                  {/* 🌟 控えめなアクション解説テキスト */}
                   {actionDesc && <p className="text-[11px] text-slate-500 mt-1.5 leading-snug break-words">👉 {actionDesc}</p>}
                 </div>
               </div>
@@ -248,7 +243,7 @@
       );
     };
 
-    // --- 🗂️ システムマスタビュー（項目追加対応） ---
+    // --- 🗂️ システムマスタビュー ---
     const SystemMasterView = ({ systemData, selectionData, refreshData }) => {
       const [subTab, setSubTab] = React.useState('sys'); 
       const [selected, setSelected] = React.useState(null);
@@ -297,11 +292,11 @@
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-w-4xl">
-              <table className="w-full text-sm text-left"><thead className="bg-slate-100 text-slate-600 border-b"><tr><th className="px-6 py-3 whitespace-nowrap">ID</th><th className="px-6 py-3 whitespace-nowrap">区分</th><th className="px-6 py-3 whitespace-nowrap">ステータス名</th><th className="px-6 py-3 whitespace-nowrap">アクション</th></tr></thead>
+              <table className="w-full text-sm text-left"><thead className="bg-slate-100 text-slate-600 border-b"><tr><th className="px-4 py-3 whitespace-nowrap">ID</th><th className="px-4 py-3 whitespace-nowrap">区分</th><th className="px-4 py-3 whitespace-nowrap">ステータス名</th><th className="px-4 py-3 whitespace-nowrap">アクション</th></tr></thead>
                 <tbody className="divide-y">
                   {selectionData.map((m, i) => (
                     <tr key={i} onClick={() => { setStatusForm({...m}); setSelected(m); setIsNew(false); }} className="hover:bg-slate-50 cursor-pointer">
-                      <td className="px-6 py-3 font-mono font-bold text-blue-600">{m['ステータスID']}</td><td className="px-6 py-3 text-slate-500 font-medium">{m['対象区分']}</td><td className="px-6 py-3 font-black text-slate-800">{m['ステータス名']}</td><td className="px-6 py-3 text-slate-600 font-medium">{m['デフォルトネクストアクション']}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-blue-600">{m['ステータスID']}</td><td className="px-4 py-3 text-slate-500 font-medium">{m['対象区分']}</td><td className="px-4 py-3 font-black text-slate-800">{m['ステータス名']}</td><td className="px-4 py-3 text-slate-600 font-medium">{m['デフォルトネクストアクション']}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -516,7 +511,7 @@
 
       React.useEffect(() => {
         if (selectedCanId) {
-          const draft = localStorage.getItem(`daiki_ats_draft_${selectedCanId}`);
+          const draft = localStorage.getItem(`daiki_ats_draft_${selectedCanId}_${activeTab}`);
           if (draft) {
             const parsed = JSON.parse(draft);
             setForm1(parsed.form1 || defaultForm1); setRatings1(parsed.ratings1 || {}); setForm2(parsed.form2 || defaultForm2); setBonus2(parsed.bonus2 || {}); setForm3(parsed.form3 || defaultForm3);
@@ -528,7 +523,7 @@
 
       const handleSaveDraft = () => {
         if (!selectedCanId) return;
-        localStorage.setItem(`daiki_ats_draft_${selectedCanId}`, JSON.stringify({ form1, ratings1, form2, bonus2, form3 }));
+        localStorage.setItem(`daiki_ats_draft_${selectedCanId}_${activeTab}`, JSON.stringify({ form1, ratings1, form2, bonus2, form3 }));
         alert('📝 入力途中データをブラウザに一時保存しました！');
       };
 
@@ -547,7 +542,6 @@
         else if (mScore >= 15 && mScore <= 17) autoResult = bCount >= 1 ? '合格 (条件③適合)' : '不合格';
       }
 
-      // 🌟 面接評価の保存とSPAリロード処理の完全修正！
       const handleFormSubmit = (e, type) => {
         e.preventDefault(); if (isSubmitting) return; setIsSubmitting(true);
         let submitObj = { candidateId: selectedCanId, interviewType: type, ratings: {} };
@@ -569,10 +563,9 @@
 
         google.script.run
           .withSuccessHandler(() => { 
-            localStorage.removeItem(`daiki_ats_draft_${selectedCanId}`); 
+            localStorage.removeItem(`daiki_ats_draft_${selectedCanId}_${activeTab}`); 
             alert(`${type}評価保存完了！`); 
             
-            // 🌟 修正内容：リロードの代わりにデータを最新化し、選択を解除してトップに戻る
             refreshData(); 
             setSelectedCanId('');
             setIsSubmitting(false);
