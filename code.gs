@@ -141,7 +141,6 @@ function addSelectionStatusMaster(statusData) {
     const prefix = statusData.対象区分 === '新卒' ? 'ST-N-' : 'ST-C-';
     const nextId = prefix + String(lastRow).padStart(2, '0');
     
-    // 🌟 新しく追加された「ステータス説明」「デフォルトアクション」「アクション解説」も一緒に保存
     sheet.appendRow([
       nextId, 
       statusData.対象区分, 
@@ -212,6 +211,8 @@ function saveInterviewResult(resultData) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const historySheet = ss.getSheetByName("選考履歴");
+    
+    // 1. 履歴シートへの追記
     if (historySheet) {
       const headers = historySheet.getDataRange().getValues()[0];
       const rowData = headers.map(header => {
@@ -244,26 +245,66 @@ function saveInterviewResult(resultData) {
       historySheet.appendRow(rowData);
     }
     
+    // 2. 応募者シートのステータス自動進行
     const candidateSheet = ss.getSheetByName("応募者");
-    if (candidateSheet) {
-      const values = candidateSheet.getDataRange().getValues();
-      const headers = values[0];
-      const idIndex = headers.indexOf("応募者ID");
-      const statusIndex = headers.indexOf("現在のステータス");
-      const actionIndex = headers.indexOf("ネクストアクション");
-      
-      for (let i = 1; i < values.length; i++) {
-        if (values[i][idIndex] === resultData.candidateId) {
-          let nextStatus = ""; let nextAction = "";
+    const statusMasterSheet = ss.getSheetByName("選考ステータスマスタ");
+    
+    if (candidateSheet && statusMasterSheet) {
+      const candidateValues = candidateSheet.getDataRange().getValues();
+      const candidateHeaders = candidateValues[0];
+      const idIndex = candidateHeaders.indexOf("応募者ID");
+      const statusIndex = candidateHeaders.indexOf("現在のステータス");
+      const actionIndex = candidateHeaders.indexOf("ネクストアクション");
+      const typeIndex = candidateHeaders.indexOf("採用区分");
+
+      const masterValues = statusMasterSheet.getDataRange().getValues();
+      const masterHeaders = masterValues[0];
+      const mTypeIndex = masterHeaders.indexOf("対象区分");
+      const mStatusNameIndex = masterHeaders.indexOf("ステータス名");
+      const mActionIndex = masterHeaders.indexOf("デフォルトネクストアクション");
+
+      for (let i = 1; i < candidateValues.length; i++) {
+        if (candidateValues[i][idIndex] === resultData.candidateId) {
+          const currentType = candidateValues[i][typeIndex];
+          const currentStatus = candidateValues[i][statusIndex];
+          const currentAction = candidateValues[i][actionIndex];
+          
+          let nextStatus = currentStatus;
+          let nextAction = currentAction;
+          let targetStatusName = "";
+
+          // 🌟 判定結果に応じたターゲットのステータス名を設定
           if (resultData.overallResult === 'ok') {
-            if (resultData.interviewType === '一次面談') { nextStatus = '⑤一次選考合格'; nextAction = '二次選考日程調整'; }
-            else if (resultData.interviewType === '二次選考') { nextStatus = '⑦二次選考合格'; nextAction = '最終選考日程調整'; }
-            else { nextStatus = '⑩内定通知'; nextAction = '内定承諾待ち（定期フォロー）'; }
+            if (resultData.interviewType === '一次面談') targetStatusName = '⑤一次選考合格';
+            else if (resultData.interviewType === '二次選考') targetStatusName = '⑦二次選考合格';
+            else if (resultData.interviewType === '最終選考') targetStatusName = '⑨最終選考合格';
+          } else if (resultData.overallResult === 'ng') {
+            targetStatusName = '[終了] 選考不合格';
           } else if (resultData.overallResult === 'hold') {
-            nextStatus = '選考中（保留）'; nextAction = '社内協議';
-          } else {
-            nextStatus = '⑭選考不合格'; nextAction = 'お見送り連絡送付';
+            // 保留の場合はステータス維持、アクションのみ「社内協議」
+            nextStatus = currentStatus;
+            nextAction = '社内協議';
           }
+
+          // 🌟 マスタから対象区分とステータス名に合致する行を検索
+          if (targetStatusName) {
+            let found = false;
+            for (let j = 1; j < masterValues.length; j++) {
+              if (masterValues[j][mTypeIndex] === currentType && masterValues[j][mStatusNameIndex] === targetStatusName) {
+                nextStatus = targetStatusName;
+                nextAction = masterValues[j][mActionIndex] || "";
+                found = true;
+                break;
+              }
+            }
+            // 見つからない場合は現在の値を維持
+            if (!found) {
+              nextStatus = currentStatus;
+              nextAction = currentAction;
+            }
+          }
+
+          // 応募者シートへ書き込み
           if (statusIndex !== -1) candidateSheet.getRange(i + 1, statusIndex + 1).setValue(nextStatus);
           if (actionIndex !== -1) candidateSheet.getRange(i + 1, actionIndex + 1).setValue(nextAction);
           break;
@@ -274,7 +315,6 @@ function saveInterviewResult(resultData) {
   } catch (err) { return { success: false, error: err.toString() }; }
 }
 
-// 【予備・スプシ直接手入力用】応募者ID 自動採番シンプルトリガー
 function autoAssignApplicantId(e) {
   if (!e) return;
   const sheet = e.source.getActiveSheet();
