@@ -30,6 +30,7 @@ function getSpreadsheetData() {
 
   let selectionStatuses = getSheetValues("選考ステータスマスタ");
   if (selectionStatuses.length > 0) {
+    // 「ステータスID」の文字列で昇順ソート
     selectionStatuses.sort((a, b) => {
       const idA = String(a.ステータスID || "");
       const idB = String(b.ステータスID || "");
@@ -37,7 +38,6 @@ function getSpreadsheetData() {
     });
   }
 
-  // 🌟 システム設定表示用にスプレッドシートの情報を取得
   const settingsData = {
     spreadsheetUrl: ss.getUrl(),
     spreadsheetName: ss.getName()
@@ -50,7 +50,7 @@ function getSpreadsheetData() {
     selectionStatuses: selectionStatuses,
     systemMaster: getSheetValues("システムマスタ"), 
     history: getSheetValues("選考履歴"),
-    settings: settingsData // 🌟 設定情報を追加
+    settings: settingsData
   };
 }
 
@@ -140,7 +140,16 @@ function addSelectionStatusMaster(statusData) {
     const lastRow = sheet.getLastRow();
     const prefix = statusData.対象区分 === '新卒' ? 'ST-N-' : 'ST-C-';
     const nextId = prefix + String(lastRow).padStart(2, '0');
-    sheet.appendRow([nextId, statusData.対象区分, statusData.ステータス名]);
+    
+    // 🌟 新しく追加された「ステータス説明」「デフォルトアクション」「アクション解説」も一緒に保存
+    sheet.appendRow([
+      nextId, 
+      statusData.対象区分, 
+      statusData.ステータス名,
+      statusData.ステータス説明 || "",
+      statusData.デフォルトネクストアクション || "",
+      statusData.ネクストアクション解説 || ""
+    ]);
     return { success: true };
   } catch (err) { return { success: false, error: err.toString() }; }
 }
@@ -247,13 +256,13 @@ function saveInterviewResult(resultData) {
         if (values[i][idIndex] === resultData.candidateId) {
           let nextStatus = ""; let nextAction = "";
           if (resultData.overallResult === 'ok') {
-            if (resultData.interviewType === '一次面談') { nextStatus = '⑤一次選考合格'; nextAction = '二次選考調整'; }
-            else if (resultData.interviewType === '二次選考') { nextStatus = '⑦二次選考合格'; nextAction = '最終選考調整'; }
-            else { nextStatus = '⑩内定通知'; nextAction = '内定承諾待ち'; }
+            if (resultData.interviewType === '一次面談') { nextStatus = '⑤一次選考合格'; nextAction = '二次選考日程調整'; }
+            else if (resultData.interviewType === '二次選考') { nextStatus = '⑦二次選考合格'; nextAction = '最終選考日程調整'; }
+            else { nextStatus = '⑩内定通知'; nextAction = '内定承諾待ち（定期フォロー）'; }
           } else if (resultData.overallResult === 'hold') {
             nextStatus = '選考中（保留）'; nextAction = '社内協議';
           } else {
-            nextStatus = '⑬選考不合格'; nextAction = '不合格通知送付';
+            nextStatus = '⑭選考不合格'; nextAction = 'お見送り連絡送付';
           }
           if (statusIndex !== -1) candidateSheet.getRange(i + 1, statusIndex + 1).setValue(nextStatus);
           if (actionIndex !== -1) candidateSheet.getRange(i + 1, actionIndex + 1).setValue(nextAction);
@@ -265,6 +274,7 @@ function saveInterviewResult(resultData) {
   } catch (err) { return { success: false, error: err.toString() }; }
 }
 
+// 【予備・スプシ直接手入力用】応募者ID 自動採番シンプルトリガー
 function autoAssignApplicantId(e) {
   if (!e) return;
   const sheet = e.source.getActiveSheet();
