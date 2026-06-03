@@ -1,0 +1,38 @@
+<script type="text/babel">
+const Sidebar = ({ activePage, setActivePage }) => (
+  <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full hidden md:flex shrink-0">
+    <div className="h-16 flex items-center px-6 border-b border-slate-800 mb-4">
+      <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white font-bold mr-3 text-xs">ATS</div>
+      <span className="text-white font-bold text-lg tracking-wide">ダイキアクシスATS</span>
+    </div>
+    <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-1">メインメニュー</div>
+      <button onClick={() => setActivePage('dashboard')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'dashboard' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">🏠</span>ダッシュボード
+      </button>
+      <button onClick={() => setActivePage('candidates')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'candidates' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">👥</span>候補者管理
+      </button>
+      <button onClick={() => setActivePage('interview')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'interview' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">📄</span>面接・評価シート
+      </button>
+      
+      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 mt-4 mb-1">マスタ管理</div>
+      <button onClick={() => setActivePage('jobs')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'jobs' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">💼</span>求人マスタ
+      </button>
+      <button onClick={() => setActivePage('channels')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'channels' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">📢</span>応募経路マスタ
+      </button>
+      <button onClick={() => setActivePage('system-master')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'system-master' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">🗂️</span>システムマスタ
+      </button>
+    </nav>
+    <div className="p-4 border-t border-slate-800 shrink-0">
+      <button onClick={() => setActivePage('settings')} className={`w-full flex items-center px-3 py-2 rounded-lg text-sm text-left ${activePage === 'settings' ? 'bg-blue-600/20 text-blue-400 font-medium' : 'hover:bg-slate-800'}`}>
+        <span className="mr-2 text-base">⚙️</span>システム設定
+      </button>
+    </div>
+  </aside>
+);
+</script>
