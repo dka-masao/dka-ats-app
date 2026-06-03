@@ -1,0 +1,28 @@
+<script type="text/babel">
+const DashboardView = ({ setActivePage }) => (
+  <div className="p-6 md:p-8 flex-1 overflow-y-auto space-y-6">
+    <div className="bg-gradient-to-r from-slate-900 to-blue-950 text-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-800">
+      <h2 className="text-2xl font-black mb-2 tracking-tight">Daiki Axis ATS へようこそ</h2>
+      <p className="text-sm text-slate-400 leading-relaxed max-w-xl">本システムはリアルタイムでスプレッドシート、Googleドライブフォルダと完全同期されています。機密性の高い採用情報が強固に保護されています。</p>
+    </div>
+    
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div onClick={() => setActivePage('candidates')} className="bg-white p-6 rounded-2xl border-2 border-slate-100 hover:border-blue-500 cursor-pointer shadow-sm transition-all group">
+        <div className="text-3xl mb-2 group-hover:scale-110 transition-all">👥</div>
+        <div className="font-bold text-slate-800 text-lg">候補者管理メニュー</div>
+        <div className="text-xs text-slate-400 mt-1">プロフィールの編集、新規自動採番登録、辞退・お見送り処理はこちら</div>
+      </div>
+      <div onClick={() => setActivePage('interview')} className="bg-white p-6 rounded-2xl border-2 border-slate-100 hover:border-blue-500 cursor-pointer shadow-sm transition-all group">
+        <div className="text-3xl mb-2 group-hover:scale-110 transition-all">📄</div>
+        <div className="font-bold text-slate-800 text-lg">面接・評価シート入力</div>
+        <div className="text-xs text-slate-400 mt-1">1次面談、2次職場体験面接（自動計算）、最終役員面接の評価はこちら</div>
+      </div>
+      <div onClick={() => setActivePage('system-master')} className="bg-white p-6 rounded-2xl border-2 border-slate-100 hover:border-blue-500 cursor-pointer shadow-sm transition-all group">
+        <div className="text-3xl mb-2 group-hover:scale-110 transition-all">🗂️</div>
+        <div className="font-bold text-slate-800 text-lg">システムマスタ管理</div>
+        <div className="text-xs text-slate-400 mt-1">選考ステップ、求人ステータス、経路タイプなど環境選択肢の確認</div>
+      </div>
+    </div>
+  </div>
+);
+</script>
