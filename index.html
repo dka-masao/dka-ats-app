@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ダイキアクシスATS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen overflow-hidden">
+
+  <div id="root"></div>
+
+  <?!= include('Sidebar'); ?>
+  <?!= include('Dashboard'); ?>
+  <?!= include('Interview'); ?>
+
+  <script type="text/babel">
+    // --- ➕ 新規候補者追加用モーダルコンポーネント ---
+    const NewCandidateModal = ({ onClose, onSave, jobs, channels, selectionStatuses }) => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const statusOptionsNew = selectionStatuses ? selectionStatuses.filter(m => m['対象区分'] === '新卒').map(m => m['ステータス名']) : ["①エントリー"];
+      const statusOptionsMid = selectionStatuses ? selectionStatuses.filter(m => m['対象区分'] === '中途').map(m => m['ステータス名']) : ["選考中"];
+
+      const [formData, setFormData] = React.useState({
+        応募日: todayStr, 採用区分: '新卒', 姓: '', 名: '', 性別: '男性', 
+        メールアドレス: '', 電話番号: '', 大学名: '', 学部名: '', 学科名: '', 卒業予定年月: '', 
+        現在のステータス: statusOptionsNew[0], ネクストアクション: '書類選考待ち', 応募求人ID: '', 応募経路ID: '', 資料フォルダ: ''
+      });
+      const [isSaving, setIsSaving] = React.useState(false);
+      const currentStatuses = formData.採用区分 === '新卒' ? statusOptionsNew : statusOptionsMid;
+
+      const handleTypeChange = (type) => {
+        const nextOpts = type === '新卒' ? statusOptionsNew : statusOptionsMid;
+        setFormData({
+          ...formData, 採用区分: type, 現在のステータス: nextOpts[0],
+          ネクストアクション: type === '新卒' ? '書類選考待ち' : '面接調整中'
+        });
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!formData.姓 || !formData.名) return alert('氏名は必須入力です！');
+        setIsSaving(true);
+        google.script.run
+          .withSuccessHandler((res) => {
+            if (res.success) { alert(`🎉 新規追加完了！\n【自動採番ID: ${res.generatedId}】`); setIsSaving(false); onSave(); }
+            else { alert('登録失敗: ' + res.error); setIsSaving(false); }
+          }).addNewCandidateFromApp(formData);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col border">
+            <div className="p-6 bg-blue-600 text-white flex justify-between items-center sticky top-0 z-10">
+              <span className="text-xl font-black">➕ 新規候補者をデータベースへ追加登録</span>
+              <button onClick={onClose} className="text-2xl font-bold hover:text-slate-200">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 flex-1 text-base">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-blue-50/50 p-5 rounded-2xl border border-blue-200">
+                <div><label className="block text-xs font-bold text-blue-900 mb-1">応募日</label><input type="date" className="w-full p-2.5 border rounded-xl" value={formData.応募日} onChange={(e)=>setFormData({...formData, 応募日:e.target.value})} /></div>
+                <div><label className="block text-xs font-bold text-blue-900 mb-1">採用区分</label>
+                  <div className="flex bg-white rounded-xl p-1 border border-blue-200 gap-1 font-bold">
+                    <button type="button" onClick={()=>handleTypeChange('新卒')} className={`flex-1 py-1.5 rounded-lg text-sm ${formData.採用区分==='新卒' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>新卒(N)</button>
+                    <button type="button" onClick={()=>handleTypeChange('中途')} className={`flex-1 py-1.5 rounded-lg text-sm ${formData.採用区分==='中途' ? 'bg-purple-600 text-white' : 'text-slate-500'}`}>中途(C)</button>
+                  </div>
+                </div>
+                <div><label className="block text-xs font-bold text-blue-900 mb-1">現在のステータス</label>
+                  <select className="w-full p-2.5 border rounded-xl bg-white font-bold text-blue-700 text-sm outline-none" value={formData.現在のステータス} onChange={(e)=>setFormData({...formData, 現在のステータス:e.target.value})}>
+                    {currentStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-5 rounded-2xl border">
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">姓（必須）</label><input type="text" className="w-full p-2.5 border rounded-xl" placeholder="例: 山田" value={formData.姓} onChange={(e)=>setFormData({...formData, 姓:e.target.value})} /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">名（必須）</label><input type="text" className="w-full p-2.5 border rounded-xl" placeholder="例: 太郎" value={formData.名} onChange={(e)=>setFormData({...formData, 名:e.target.value})} /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">性別</label><select className="w-full p-2.5 border rounded-xl" value={formData.性別} onChange={(e)=>setFormData({...formData, 性別:e.target.value})}><option value="男性">男性</option><option value="女性">女性</option><option value="回答しない">回答しない</option></select></div>
+              </div>
+              {formData.採用区分 === '新卒' && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-blue-50/30 p-5 rounded-2xl border border-blue-100 animate-fadeIn">
+                  <div className="md:col-span-2"><label className="block text-xs font-bold text-blue-950 mb-1">大学名</label><input type="text" className="w-full p-2.5 border border-blue-200 rounded-xl" placeholder="〇〇大学" value={formData.大学名} onChange={(e)=>setFormData({...formData, 大学名:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold text-blue-950 mb-1">学部名</label><input type="text" className="w-full p-2.5 border border-blue-200 rounded-xl" placeholder="工学部" value={formData.学部名} onChange={(e)=>setFormData({...formData, 学部名:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold text-blue-950 mb-1">学科名</label><input type="text" className="w-full p-2.5 border border-blue-200 rounded-xl" placeholder="機械工学科" value={formData.学科名} onChange={(e)=>setFormData({...formData, 学科名:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold text-blue-950 mb-1">卒業予定年月</label><input type="text" className="w-full p-2.5 border border-blue-200 rounded-xl" placeholder="2027/03" value={formData.卒業予定年月} onChange={(e)=>setFormData({...formData, 卒業予定年月:e.target.value})} /></div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-5 rounded-2xl border">
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">応募求人</label><select className="w-full p-2.5 border rounded-xl bg-white text-sm" value={formData.応募求人ID} onChange={(e)=>setFormData({...formData, 応募求人ID:e.target.value})}><option value="">-- 求人枠を選択 --</option>{jobs.map(j => <option key={j.求人ID} value={j.求人ID}>[{j.求人ID}] {j.求人タイトル} ({j.部署名})</option>)}</select></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">応募経路</label><select className="w-full p-2.5 border rounded-xl bg-white text-sm" value={formData.応募経路ID} onChange={(e)=>setFormData({...formData, 応募経路ID:e.target.value})}><option value="">-- チャネルを選択 --</option>{channels.map(ch => <option key={ch.応募経路ID} value={ch.応募経路ID}>[{ch.応募経路ID}] {ch['経路名']} ({ch['経路タイプ']})</option>)}</select></div>
+              </div>
+              <div className="bg-slate-50 p-5 rounded-2xl border space-y-1.5"><label className="block text-xs font-bold text-slate-500">📁 Googleドライブ 資料フォルダURL</label><input type="text" className="w-full p-3 border rounded-xl font-mono text-sm" placeholder="https://drive.google.com/..." value={formData.資料フォルダ} onChange={(e)=>setFormData({...formData, 資料フォルダ:e.target.value})} /></div>
+              <div className="flex justify-end gap-4 border-t pt-5 bg-white sticky bottom-0">
+                <button type="button" onClick={onClose} className="px-6 py-3 bg-slate-200 text-slate-700 font-bold rounded-xl">閉じる</button>
+                <button type="submit" disabled={isSaving} className="px-10 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md disabled:bg-slate-300">{isSaving ? '保存中...' : '自動採番して新規登録'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 👥 候補者詳細情報・編集モーダルコンポーネント ---
+    const CandidateDetailModal = ({ candidate, onClose, onSave, selectionStatuses, jobs, channels }) => {
+      const [formData, setFormData] = React.useState({ ...candidate });
+      const [isSaving, setIsSaving] = React.useState(false);
+      const statusOptionsNew = selectionStatuses ? selectionStatuses.filter(m => m['対象区分'] === '新卒').map(m => m['ステータス名']) : ["①エントリー"];
+      const statusOptionsMid = selectionStatuses ? selectionStatuses.filter(m => m['対象区分'] === '中途').map(m => m['ステータス名']) : ["選考中"];
+      const currentStatuses = formData.採用区分 === '新卒' ? statusOptionsNew : statusOptionsMid;
+      const isDeclined = formData.現在のステータス.includes('辞退') || formData.現在のステータス.includes('不合格') || formData.現在のステータス === '採用辞退';
+
+      const handleSubmit = (e) => {
+        e.preventDefault(); setIsSaving(true);
+        google.script.run.withSuccessHandler(() => { alert('応募者情報を更新しました！'); setIsSaving(false); onSave(); }).updateCandidateInfo(formData);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto flex flex-col border">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-10">
+              <div><span className="text-sm bg-blue-600 text-white px-3 py-1 rounded-md font-black mr-3 shadow-sm">{formData.採用区分}</span><span className="text-xl font-black">ID: {formData.応募者ID} ／ {formData.姓} {formData.名} さん</span></div>
+              <button onClick={onClose} className="text-2xl font-bold hover:text-slate-300">✕</button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 flex-1 text-base">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-slate-100 p-4 rounded-xl border text-sm">
+                <div><span className="block text-slate-500 font-bold">応募者ID</span><strong className="text-base text-slate-800 font-mono">{formData.応募者ID}</strong></div>
+                <div><span className="block text-slate-500 font-bold">採用区分</span><strong className="text-base text-slate-800">{formData.採用区分}</strong></div>
+                <div><span className="block text-slate-500 font-bold">応募受付日</span><strong className="text-base text-slate-800 font-mono">{formData.応募日}</strong></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-5 rounded-2xl border">
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">姓</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.姓} onChange={(e)=>setFormData({...formData, 姓:e.target.value})} /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">名</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.名} onChange={(e)=>setFormData({...formData, 名:e.target.value})} /></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">性別</label><select className="w-full p-2.5 border rounded-xl" value={formData.性別} onChange={(e)=>setFormData({...formData, 性別:e.target.value})}><option value="男性">男性</option><option value="女性">女性</option><option value="回答しない">回答しない</option></select></div>
+              </div>
+              {formData.採用区分 === '新卒' && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-blue-50/30 p-5 rounded-2xl border border-blue-100">
+                  <div className="md:col-span-2"><label className="block text-xs font-bold text-blue-950">大学名</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.大学名} onChange={(e)=>setFormData({...formData, 大学名:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold text-blue-950">学部名</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.学部名} onChange={(e)=>setFormData({...formData, 学部名:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold text-blue-950">学科名</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.学科名} onChange={(e)=>setFormData({...formData, 学科名:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold text-blue-950">卒業予定年月</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.卒業予定年月} onChange={(e)=>setFormData({...formData, 卒業予定年月:e.target.value})} /></div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-5 rounded-2xl border">
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">応募求人</label><select className="w-full p-2.5 border rounded-xl text-sm" value={formData.応募求人ID} onChange={(e)=>setFormData({...formData, 応募求人ID:e.target.value})}>{jobs.map(j => <option key={j.求人ID} value={j.求人ID}>[{j.求人ID}] {j.求人タイトル}</option>)}</select></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">応募経路</label><select className="w-full p-2.5 border rounded-xl text-sm" value={formData.応募経路ID} onChange={(e)=>setFormData({...formData, 応募経路ID:e.target.value})}>{channels.map(ch => <option key={ch.応募経路ID} value={ch.応募経路ID}>[{ch.応募経路ID}] {ch['経路名']}</option>)}</select></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-5 rounded-2xl border">
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">現在の進捗ステータス</label><select className="w-full p-2.5 border rounded-xl font-bold text-blue-700" value={formData.現在のステータス} onChange={(e)=>setFormData({...formData, 現在のステータス:e.target.value})}>{currentStatuses.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                <div><label className="block text-xs font-bold text-slate-500 mb-1">ネクストアクション</label><input type="text" className="w-full p-2.5 border rounded-xl" value={formData.ネクストアクション} onChange={(e)=>setFormData({...formData, ネクストアクション:e.target.value})} /></div>
+              </div>
+              {isDeclined && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-red-50/30 p-5 rounded-2xl border border-red-200">
+                  <div><label className="block text-xs font-bold text-red-950">辞退理由（カテゴリ）</label><select className="w-full p-2.5 border rounded-xl bg-white" value={formData['辞退理由（カテゴリ）']} onChange={(e)=>setFormData({...formData, '辞退理由（カテゴリ）':e.target.value})}><option value="">-- 選択 --</option>{currentReasons.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                  <div className="md:col-span-2"><label className="block text-xs font-bold text-red-950">辞退理由（詳細）</label><textarea className="w-full h-11 p-2 border rounded-xl bg-white text-sm" value={formData['辞退理由（詳細）']} onChange={(e)=>setFormData({...formData, '辞退理由（詳細）':e.target.value})}></textarea></div>
+                </div>
+              )}
+              <div className="bg-slate-50/50 p-5 rounded-2xl border space-y-2"><label className="block text-xs font-bold text-slate-500">📁 Googleドライブ 資料フォルダURL</label><div className="flex gap-3"><input type="text" className="flex-1 p-3 border rounded-xl font-mono text-sm" value={formData.資料フォルダ} onChange={(e)=>setFormData({...formData, 資料フォルダ:e.target.value})} />{formData.資料フォルダ && (<a href={formData.資料フォルダ} target="_blank" className="px-5 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center text-sm">📁 開く ↗</a>)}</div></div>
+              <div className="flex justify-end gap-4 border-t pt-5 bg-white sticky bottom-0">
+                <button type="button" onClick={onClose} className="px-6 py-3 bg-slate-200 text-slate-700 font-bold rounded-xl">キャンセル</button>
+                <button type="submit" disabled={isSaving} className="px-10 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">{isSaving ? '保存中...' : '変更を保存する'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 👥 候補者管理メインビュー ---
+    const CandidatesView = ({ data, refreshData, jobs, channels, selectionStatuses }) => {
+      const [selectedCandidate, setSelectedCandidate] = React.useState(null);
+      const [isNewOpen, setIsNewOpen] = React.useState(false);
+      return (
+        <div className="p-4 md:p-6 flex-1 overflow-y-auto">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div><h1 className="text-2xl font-bold text-slate-800">候補者管理</h1><p className="text-sm text-slate-400 font-medium">※行をクリックすると詳細編集が可能です。</p></div>
+            <button onClick={() => setIsNewOpen(true)} className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-base rounded-xl shadow-md flex items-center gap-2"><span>＋</span> 新規候補者を追加</button>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table className="w-full text-sm text-left whitespace-nowrap">
+              <thead className="bg-slate-100 text-slate-600 border-b">
+                <tr><th className="px-6 py-3">応募者ID</th><th className="px-6 py-3">氏名 / 学校名・学歴</th><th className="px-6 py-3">区分</th><th className="px-6 py-3">現在のステータス</th><th className="px-6 py-3">ネクストアクション</th></tr>
+              </thead>
+              <tbody className="divide-y">
+                {data.map((can) => (
+                  <tr key={can['応募者ID']} onClick={() => setSelectedCandidate(can)} className="hover:bg-blue-50/40 cursor-pointer transition-all">
+                    <td className="px-6 py-4 font-mono font-bold text-slate-700">{can['応募者ID']}</td>
+                    <td className="px-6 py-4"><div className="font-bold text-slate-900 text-base">{can['姓']} {can['名']}</div><div className="text-xs text-slate-500">{can['採用区分'] === '新卒' ? `${can['大学名']} ${can['学部名']}` : '中途採用'}</div></td>
+                    <td className="px-6 py-4"><span className={`px-2.5 py-0.5 rounded text-xs font-bold ${can['採用区分'] === '新卒' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{can['採用区分']}</span></td>
+                    <td className="px-6 py-4"><span className={`px-3 py-1 rounded-full text-xs font-black ${can['現在のステータス'].includes('合格') ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-700'}`}>{can['現在のステータス']}</span></td>
+                    <td className="px-6 py-4 text-slate-600 font-medium">{can['ネクストアクション'] || '---'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {selectedCandidate && <CandidateDetailModal candidate={selectedCandidate} onClose={() => setSelectedCandidate(null)} onSave={() => { setSelectedCandidate(null); refreshData(); }} selectionStatuses={selectionStatuses} jobs={jobs} channels={channels} />}
+          {isNewOpen && <NewCandidateModal onClose={() => setIsNewOpen(false)} onSave={() => { setIsNewOpen(false); refreshData(); }} jobs={jobs} channels={channels} selectionStatuses={selectionStatuses} />}
+        </div>
+      );
+    };
+
+    // --- 💼 求人マスタビュー ---
+    const JobsView = ({ data, refreshData, systemMaster }) => {
+      const [selected, setSelected] = React.useState(null);
+      const [isNew, setIsNew] = React.useState(false);
+      const [form, setForm] = React.useState({ 求人ID:'', 求人タイトル:'', 部署名:'', 募集人数:'1', ステータス:'下書き' });
+      const statusOpts = systemMaster ? systemMaster.filter(m => m['マスタ分類'] === '求人ステータス').map(m => m['名称']) : ['下書き', '募集中'];
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        if(isNew) { google.script.run.withSuccessHandler(() => { alert('求人を追加しました'); setIsNew(false); refreshData(); }).addJobMaster(form); }
+        else { google.script.run.withSuccessHandler(() => { alert('求人情報を更新しました'); setSelected(null); refreshData(); }).updateJobMaster(form); }
+      };
+
+      return (
+        <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-slate-800">求人マスタ</h1>
+            <button onClick={() => { setForm({求人ID:'', 求人タイトル:'', 部署名:'', 募集人数:'1', ステータス:'下書き'}); setIsNew(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm">＋ 求人を追加</button>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table className="w-full text-sm text-left"><thead className="bg-slate-100 text-slate-600 border-b"><tr><th className="px-6 py-3">求人ID</th><th className="px-6 py-3">求人タイトル</th><th className="px-6 py-3">部署名</th><th className="px-6 py-3">募集人数</th><th className="px-6 py-3">ステータス</th></tr></thead>
+              <tbody className="divide-y">
+                {data.map((job, idx) => (
+                  <tr key={idx} onClick={() => { setForm({...job}); setSelected(job); setIsNew(false); }} className="hover:bg-slate-50 cursor-pointer">
+                    <td className="px-6 py-4 font-bold text-blue-600">{job['求人ID']}</td><td className="px-6 py-4 font-bold text-slate-800">{job['求人タイトル']}</td><td className="px-6 py-4">{job['部署名']}</td><td className="px-6 py-4">{job['募集人数']}名</td><td className="px-6 py-4 font-medium">{job['ステータス']}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {(isNew || selected) && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+              <form onSubmit={handleSave} className="bg-white p-6 rounded-2xl max-w-md w-full border space-y-4 shadow-xl">
+                <h3 className="text-lg font-black border-b pb-2">{isNew ? "＋ 新規求人の登録" : `📝 求人の編集 (${form.求人ID})`}</h3>
+                <div><label className="block text-xs font-bold mb-1">求人タイトル</label><input type="text" className="w-full p-2 border rounded-xl" value={form.求人タイトル} onChange={(e)=>setForm({...form, 求人タイトル:e.target.value})} required /></div>
+                <div><label className="block text-xs font-bold mb-1">部署名</label><input type="text" className="w-full p-2 border rounded-xl" value={form.部署名} onChange={(e)=>setForm({...form, 部署名:e.target.value})} required /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-xs font-bold mb-1">募集人数</label><input type="number" className="w-full p-2 border rounded-xl" value={form.募集人数} onChange={(e)=>setForm({...form, 募集人数:e.target.value})} /></div>
+                  <div><label className="block text-xs font-bold mb-1">ステータス</label><select className="w-full p-2 border rounded-xl bg-white" value={form.ステータス} onChange={(e)=>setForm({...form, ステータス:e.target.value})}>{statusOpts.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                </div>
+                <div className="flex justify-end gap-2 border-t pt-3"><button type="button" onClick={()=>{setIsNew(false); setSelected(null);}} className="px-4 py-2 bg-slate-100 rounded-lg text-sm">閉じる</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm">保存する</button></div>
+              </form>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // --- 📢 応募経路マスタビュー ---
+    const ChannelsView = ({ data, refreshData, systemMaster }) => {
+      const [selected, setSelected] = React.useState(null);
+      const [isNew, setIsNew] = React.useState(false);
+      const [form, setForm] = React.useState({ 応募経路ID:'', 経路名:'', 経路タイプ:'', ステータス:'有効' });
+      const typeOpts = systemMaster ? systemMaster.filter(m => m['マスタ分類'] === '経路タイプ').map(m => m['名称']) : ['求人サイト', '人材紹介'];
+      const statusOpts = systemMaster ? systemMaster.filter(m => m['マスタ分類'] === '経路ステータス').map(m => m['名称']) : ['有効', '無効'];
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        if(isNew) { google.script.run.withSuccessHandler(() => { alert('応募経路を追加しました'); setIsNew(false); refreshData(); }).addChannelMaster(form); }
+        else { google.script.run.withSuccessHandler(() => { alert('応募経路を更新しました'); setSelected(null); refreshData(); }).updateChannelMaster(form); }
+      };
+
+      return (
+        <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-slate-800">応募経路マスタ</h1>
+            <button onClick={() => { setForm({応募経路ID:'', 経路名:'', 経路タイプ:typeOpts[0]||'', ステータス:'有効'}); setIsNew(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm">＋ 経路を追加</button>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table className="w-full text-sm text-left"><thead className="bg-slate-100 text-slate-600 border-b"><tr><th className="px-6 py-3">応募経路ID</th><th className="px-6 py-3">経路名</th><th className="px-6 py-3">経路タイプ</th><th className="px-6 py-3">ステータス</th></tr></thead>
+              <tbody className="divide-y">
+                {data.map((ch, i) => (
+                  <tr key={i} onClick={() => { setForm({...ch}); setSelected(ch); setIsNew(false); }} className="hover:bg-slate-50 cursor-pointer">
+                    <td className="px-6 py-4 font-mono font-bold text-blue-600">{ch['応募経路ID']}</td><td className="px-6 py-4 font-bold text-slate-800">{ch['経路名']}</td><td className="px-6 py-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs font-semibold">{ch['経路タイプ']}</span></td><td className="px-6 py-4 text-green-600 font-bold">{ch['ステータス']}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {(isNew || selected) && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+              <form onSubmit={handleSave} className="bg-white p-6 rounded-2xl max-w-md w-full border space-y-4 shadow-xl">
+                <h3 className="text-lg font-black border-b pb-2">{isNew ? "＋ 新規応募経路の登録" : `📝 経路の編集 (${form.応募経路ID})`}</h3>
+                <div><label className="block text-xs font-bold mb-1">経路名</label><input type="text" className="w-full p-2 border rounded-xl" value={form.経路名} onChange={(e)=>setForm({...form, 経路名:e.target.value})} required /></div>
+                <div><label className="block text-xs font-bold mb-1">経路タイプ</label><select className="w-full p-2 border rounded-xl bg-white" value={form.経路タイプ} onChange={(e)=>setForm({...form, 経路タイプ:e.target.value})}>{typeOpts.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                <div><label className="block text-xs font-bold mb-1">ステータス</label><select className="w-full p-2 border rounded-xl bg-white" value={form.ステータス} onChange={(e)=>setForm({...form, ステータス:e.target.value})}>{statusOpts.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                <div className="flex justify-end gap-2 border-t pt-3"><button type="button" onClick={()=>{setIsNew(false); setSelected(null);}} className="px-4 py-2 bg-slate-100 rounded-lg text-sm">閉じる</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm">保存する</button></div>
+              </form>
+            </div>
+          )}
+        </div>
+      );
+    };
+    
+    // --- 🗂️ システムマスタビュー ---
+    const SystemMasterView = ({ systemData, selectionData, refreshData }) => {
+      const [subTab, setSubTab] = React.useState('sys'); 
+      const [selected, setSelected] = React.useState(null);
+      const [isNew, setIsNew] = React.useState(false);
+      
+      const [sysForm, setSysForm] = React.useState({ マスタ分類:'経路タイプ', コード:'', 名称:'' });
+      const [statusForm, setStatusForm] = React.useState({ ステータスID:'', 対象区分:'新卒', ステータス名:'' });
+
+      const handleSysSave = (e) => {
+        e.preventDefault();
+        if(isNew) { google.script.run.withSuccessHandler(() => { alert('追加しました'); setIsNew(false); refreshData(); }).addSystemMasterRow(sysForm); }
+        else { google.script.run.withSuccessHandler(() => { alert('更新しました'); setSelected(null); refreshData(); }).updateSystemMasterRow({ ...sysForm, old分類: selected['マスタ分類'], oldコード: selected['コード'] }); }
+      };
+
+      const handleStatusSave = (e) => {
+        e.preventDefault();
+        if(isNew) { google.script.run.withSuccessHandler(() => { alert('追加しました'); setIsNew(false); refreshData(); }).addSelectionStatusMaster(statusForm); }
+        else { google.script.run.withSuccessHandler(() => { alert('更新しました'); setSelected(null); refreshData(); }).updateSelectionStatusMaster(statusForm); }
+      };
+
+      return (
+        <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-3 gap-4">
+            <div className="flex bg-slate-200 p-1 rounded-xl">
+              <button type="button" onClick={() => {setSubTab('sys'); setSelected(null); setIsNew(false);}} className={`px-4 py-2 text-sm font-bold rounded-lg ${subTab==='sys' ? 'bg-white shadow-sm text-blue-600':'text-slate-600'}`}>⚙️ システムマスタ</button>
+              <button type="button" onClick={() => {setSubTab('status'); setSelected(null); setIsNew(false);}} className={`px-4 py-2 text-sm font-bold rounded-lg ${subTab==='status' ? 'bg-white shadow-sm text-blue-600':'text-slate-600'}`}>📊 選考ステータスマスタ</button>
+            </div>
+            <button type="button" onClick={() => {
+              if(subTab==='sys') { setSysForm({マスタ分類:'経路タイプ', コード:'', 名称:''}); }
+              else { setStatusForm({ステータスID:'', 対象区分:'新卒', ステータス名:''}); }
+              setIsNew(true);
+            }} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm">＋ 新規項目を追加</button>
+          </div>
+
+          {subTab === 'sys' ? (
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-w-xl">
+              <table className="w-full text-sm text-left"><thead className="bg-slate-100 text-slate-600 border-b"><tr><th className="px-6 py-3">マスタ分類</th><th className="px-6 py-3">コード</th><th className="px-6 py-3">名称</th></tr></thead>
+                <tbody className="divide-y">
+                  {systemData.map((m, i) => (
+                    <tr key={i} onClick={() => { setSysForm({...m}); setSelected(m); setIsNew(false); }} className="hover:bg-slate-50 cursor-pointer">
+                      <td className="px-6 py-3 text-slate-500 font-bold text-xs">{m['マスタ分類']}</td><td className="px-6 py-3 font-mono font-bold text-slate-400">{m['コード']}</td><td className="px-6 py-3 font-black text-slate-800">{m['名称']}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden max-w-2xl">
+              <table className="w-full text-sm text-left"><thead className="bg-slate-100 text-slate-600 border-b"><tr><th className="px-6 py-3">ステータスID</th><th className="px-6 py-3">対象区分</th><th className="px-6 py-3">ステータス名</th></tr></thead>
+                <tbody className="divide-y">
+                  {selectionData.map((m, i) => (
+                    <tr key={i} onClick={() => { setStatusForm({...m}); setSelected(m); setIsNew(false); }} className="hover:bg-slate-50 cursor-pointer">
+                      <td className="px-6 py-3 font-mono font-bold text-blue-600">{m['ステータスID']}</td><td className="px-6 py-3 text-slate-500 font-medium">{m['対象区分']}</td><td className="px-6 py-3 font-black text-slate-800">{m['ステータス名']}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {subTab === 'sys' && (isNew || selected) && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+              <form onSubmit={handleSysSave} className="bg-white p-6 rounded-2xl max-w-md w-full border space-y-4 shadow-xl">
+                <h3 className="text-lg font-black border-b pb-2">{isNew ? "＋ 新規追加" : "📝 編集"}</h3>
+                <div><label className="block text-xs font-bold mb-1">マスタ分類</label><select className="w-full p-2 border rounded-xl bg-white" value={sysForm.マスタ分類} onChange={(e)=>setSysForm({...sysForm, マスタ分類:e.target.value})}><option value="経路タイプ">経路タイプ</option><option value="求人ステータス">求人ステータス</option><option value="経路ステータス">経路ステータス</option><option value="選考ステップ">選考ステップ</option></select></div>
+                <div><label className="block text-xs font-bold mb-1">コード</label><input type="text" className="w-full p-2 border rounded-xl font-mono text-sm" value={sysForm.コード} onChange={(e)=>setSysForm({...sysForm, コード:e.target.value})} required /></div>
+                <div><label className="block text-xs font-bold mb-1">名称</label><input type="text" className="w-full p-2 border rounded-xl" value={sysForm.名称} onChange={(e)=>setSysForm({...sysForm, 名称:e.target.value})} required /></div>
+                <div className="flex justify-end gap-2 border-t pt-3"><button type="button" onClick={()=>{setIsNew(false); setSelected(null);}} className="px-4 py-2 bg-slate-100 rounded-lg text-sm">閉じる</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm">保存する</button></div>
+              </form>
+            </div>
+          )}
+
+          {subTab === 'status' && (isNew || selected) && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+              <form onSubmit={handleStatusSave} className="bg-white p-6 rounded-2xl max-w-md w-full border space-y-4 shadow-xl">
+                <h3 className="text-lg font-black border-b pb-2">{isNew ? "＋ 新規追加" : `📝 編集 (${statusForm.ステータスID})`}</h3>
+                <div><label className="block text-xs font-bold mb-1">対象区分</label><select className="w-full p-2 border rounded-xl bg-white" value={statusForm.対象区分} onChange={(e)=>setStatusForm({...statusForm, 対象区分:e.target.value})}><option value="新卒">新卒</option><option value="中途">中途</option></select></div>
+                <div><label className="block text-xs font-bold mb-1">ステータス名</label><input type="text" className="w-full p-2 border rounded-xl" value={statusForm.ステータス名} onChange={(e)=>setStatusForm({...statusForm, ステータス名:e.target.value})} required /></div>
+                <div className="flex justify-end gap-2 border-t pt-3"><button type="button" onClick={()=>{setIsNew(false); setSelected(null);}} className="px-4 py-2 bg-slate-100 rounded-lg text-sm">閉じる</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg text-sm">保存する</button></div>
+              </form>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const SettingsView = ({ settings }) => (
+      <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-6">
+        <h1 className="text-2xl font-bold text-slate-800">システム設定</h1>
+        <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-4 max-w-3xl">
+          <h2 className="text-lg font-black border-b pb-2">連携データベース情報</h2>
+          <div className="space-y-4 text-base">
+            <div>
+              <span className="font-bold text-slate-500 block mb-1">スプレッドシート名</span>
+              <span className="font-black text-slate-800 text-lg">{settings?.spreadsheetName || '取得中...'}</span>
+            </div>
+            <div>
+              <span className="font-bold text-slate-500 block mb-1">スプレッドシートURL</span>
+              {settings?.spreadsheetUrl ? (
+                <a href={settings.spreadsheetUrl} target="_blank" className="text-blue-600 hover:text-blue-800 font-mono break-all bg-slate-50 p-3 rounded-xl block border shadow-inner">
+                  {settings.spreadsheetUrl}
+                </a>
+              ) : (
+                <span className="text-slate-400">取得中...</span>
+              )}
+            </div>
+            <div className="pt-2">
+              <p className="text-sm text-slate-500 font-medium">※本システムは上記のGoogleスプレッドシートをデータベースとしてリアルタイム同期しています。<br/>大規模なデータの一括修正やエクスポートを行う場合は、上記のリンクから直接スプレッドシートを開いてください。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    // --- 🎙️ 面接・評価シートビュー ---
+    const RatingRow1 = ({ label, value, onChange, disabled }) => (
+      <div className="py-4 border-b border-slate-100 last:border-0 flex flex-col md:flex-row md:items-center justify-between gap-3 text-lg">
+        <div className="font-bold text-slate-800 text-xl">{label}</div>
+        <div className="flex gap-3">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <label key={s} className="cursor-pointer">
+              <input type="radio" className="peer sr-only" checked={Number(value) === s} disabled={disabled} onChange={() => onChange && onChange(s)} />
+              <div className="w-14 h-14 rounded-full border-2 border-slate-300 flex items-center justify-center text-xl font-bold text-slate-600 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 disabled:opacity-60 hover:border-blue-400 transition-all">
+                {s}
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+
+    const MustItemSelector = ({ title, placeholderName, scoreLabels, valJob, valStr, onChangeJob, onChangeStr, txtValue, onTxtChange }) => (
+      <div className="p-6 border-2 border-slate-200 bg-slate-50/50 rounded-2xl space-y-4">
+        <div className="text-xl font-extrabold text-blue-900 border-b-2 pb-2">{title}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-2">
+            <div className="text-base font-bold text-slate-600">▼ 面接官【事業部】の点数選択</div>
+            <div className="space-y-2 bg-white p-4 rounded-xl border-2">
+              {[5, 4, 3, 2, 1].map(score => (
+                <label key={score} className="flex items-start gap-3 text-base font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1.5 rounded">
+                  <input type="radio" className="mt-1 w-5 h-5 text-blue-600" checked={Number(valJob) === score} onChange={() => onChangeJob(score)} />
+                  <span><strong className="text-blue-600 font-bold">{score}点：</strong>{scoreLabels[score]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-base font-bold text-slate-600">▼ 面接官【戦略推進部】の点数選択</div>
+            <div className="space-y-2 bg-white p-4 rounded-xl border-2">
+              {[5, 4, 3, 2, 1].map(score => (
+                <label key={score} className="flex items-start gap-3 text-base font-medium text-slate-700 cursor-pointer hover:bg-slate-50 p-1.5 rounded">
+                  <input type="radio" className="mt-1 w-5 h-5 text-green-600" checked={Number(valStr) === score} onChange={() => onChangeStr(score)} />
+                  <span><strong className="text-green-600 font-bold">{score}点：</strong>{scoreLabels[score]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="pt-3">
+          <textarea className="w-full h-32 p-4 border-2 border-slate-300 rounded-2xl text-lg outline-none focus:border-blue-500 bg-white" placeholder={`【事業部コメント】${placeholderName}に対する具体的な評価コメント`} value={txtValue} onChange={(e)=>onTxtChange(e.target.value)}></textarea>
+        </div>
+      </div>
+    );
+
+    const InterviewView = ({ candidate, candidates, systemMaster, history, setActivePage, selectionStatuses, jobs, channels, refreshData }) => {
+      const phaseOptions = systemMaster ? systemMaster.filter(m => m['マスタ分類'] === '選考ステップ').map(m => m['名称']) : ['一次面談', '二次選考', '最終選考'];
+
+      const [selectedCanId, setSelectedCanId] = React.useState(candidate ? candidate['応募者ID'] : '');
+      const [activeTab, setActiveTab] = React.useState(phaseOptions[0]);
+      const [isSubmitting, setIsSubmitting] = React.useState(false);
+      const [showDetail, setShowDetail] = React.useState(false);
+
+      const defaultForm1 = { details: '', trigger: '', notes: '', origin: '', comment: '', status: '', info: '', overall: '' };
+      const defaultForm2 = { date: '', m1: '', m2: '', p1: '', p2: '', p3: '', s1: '', s2: '', s3: '', p1_txt: '', p2_txt: '', p3_txt: '', pos: '', neg: '', view: '' };
+      const defaultForm3 = { r1_p: '', r1_h: '', r2_p: '', r2_h: '', r3_p: '', r3_h: '', r4_p: '', r4_h: '', r5_p: '', r5_h: '', overall: '' };
+
+      const [form1, setForm1] = React.useState(defaultForm1);
+      const [ratings1, setRatings1] = React.useState({});
+      const [form2, setForm2] = React.useState(defaultForm2);
+      const [bonus2, setBonus2] = React.useState({});
+      const [form3, setForm3] = React.useState(defaultForm3);
+
+      const currentCandidate = candidates.find(c => c['応募者ID'] === selectedCanId);
+      const pastData = history ? history.find(h => h['応募者ID'] === selectedCanId && h['選考フェーズ'] === activeTab) : null;
+
+      // 🌟 一次面談用の項目ラベル定義
+      const ratingLabels = [
+        { key: "身だしなみ", label: "（様子）身だしなみ・礼儀" },
+        { key: "積極性", label: "（意欲）積極性・熱意がある" },
+        { key: "態度", label: "（表現）態度・言葉" },
+        { key: "協調性", label: "（協調性）協調性がある" },
+        { key: "対話", label: "（対話）筋道をたてて話す" },
+        { key: "知識", label: "（知識）一般常識・理解力がある" }
+      ];
+
+      React.useEffect(() => {
+        if (selectedCanId) {
+          const draft = localStorage.getItem(`daiki_ats_draft_${selectedCanId}`);
+          if (draft) {
+            const parsed = JSON.parse(draft);
+            setForm1(parsed.form1 || defaultForm1); setRatings1(parsed.ratings1 || {}); setForm2(parsed.form2 || defaultForm2); setBonus2(parsed.bonus2 || {}); setForm3(parsed.form3 || defaultForm3);
+          } else {
+            setForm1(defaultForm1); setRatings1({}); setForm2(defaultForm2); setBonus2({}); setForm3(defaultForm3);
+          }
+        }
+      }, [selectedCanId, activeTab]);
+
+      const handleSaveDraft = () => {
+        if (!selectedCanId) return;
+        localStorage.setItem(`daiki_ats_draft_${selectedCanId}`, JSON.stringify({ form1, ratings1, form2, bonus2, form3 }));
+        alert('📝 入力途中データをブラウザに一時保存しました！');
+      };
+
+      const scoreDefs = {
+        p1: { 5:"難題に自発的に挑戦、成果・学びが明確", 4:"自発的に挑戦、成果あり", 3:"指示があれば挑戦", 2:"途中で諦めがち", 1:"挑戦を避ける" },
+        p2: { 5:"自ら課題を発見し行動", 4:"一部自発的行動", 3:"指示に従う", 2:"受動的", 1:"指示待ちのみ" },
+        p3: { 5:"最後まで諦めずやり抜く", 4:"困難でも努力を続ける", 3:"支援があれば続けられる", 2:"困難に弱く諦めやすい", 1:"すぐ諦める傾向がある" }
+      };
+
+      const mScore = Number(form2.p1||0)+Number(form2.p2||0)+Number(form2.p3||0)+Number(form2.s1||0)+Number(form2.s2||0)+Number(form2.s3||0);
+      const bCount = Object.values(bonus2).filter(v => v.checked).length;
+      let autoResult = '判定中';
+      if (form2.p1 && form2.p2 && form2.p3 && form2.s1 && form2.s2 && form2.s3) {
+        if (mScore >= 18) autoResult = '合格 (条件①適合)';
+        else if (mScore <= 14) autoResult = '不合格 (条件②適合)';
+        else if (mScore >= 15 && mScore <= 17) autoResult = bCount >= 1 ? '合格 (条件③適合)' : '不合格';
+      }
+
+      const handleFormSubmit = (e, type) => {
+        e.preventDefault(); if (isSubmitting) return; setIsSubmitting(true);
+        let submitObj = { candidateId: selectedCanId, interviewType: type, ratings: {} };
+
+        if (type === '一次面談') {
+          submitObj.ratings = ratings1; submitObj.trigger = `【確認】${form1.details}\n【きっかけ】${form1.trigger}`;
+          submitObj.notes = form1.notes; submitObj.origin = form1.origin; submitObj.comment = form1.comment;
+          submitObj.jobHuntingStatus = form1.status; submitObj.internalInfo = form1.info; submitObj.overallResult = form1.overall;
+        } else if (type === '二次選考') {
+          submitObj.comment = `【面接官】日:${form2.date} 官(事業):${form2.m1} (戦略):${form2.m2}\n【マスト(事業コメント)】\n・P×C(${form2.p1}点): ${form2.p1_txt}\n・自ら動く(${form2.p2}点): ${form2.p2_txt}\n・粘り強さ(${form2.p3}点): ${form2.p3_txt}\n【戦略点】P:${form2.s1} 主:${form2.s2} 粘:${form2.s3}`;
+          submitObj.internalInfo = `【戦略所感】ポジ:${form2.pos}\nネガ:${form2.neg}\n所感:${form2.view}\n【判定】${autoResult}`;
+          submitObj.notes = `【加点: ${bCount}個】\n` + Object.entries(bonus2).filter(([_,v])=>v.checked).map(([k,v])=> `・${k}: ${v.txt}`).join('\n');
+          submitObj.overallResult = autoResult.includes('合格') ? 'ok' : 'ng';
+        } else {
+          submitObj.comment = `【理念共感】[社長] ${form3.r1_p}\n[HR] ${form3.r1_h}\n\n【魅力】[社長] ${form3.r2_p}\n[HR] ${form3.r2_h}`;
+          submitObj.internalInfo = `【期待】[社長] ${form3.r3_p}\n[HR] ${form3.r3_h}\n\n【課題】[社長] ${form3.r4_p}\n[HR] ${form3.r4_h}`;
+          submitObj.notes = `【その他】[社長] ${form3.r5_p}\n[HR] ${form3.r5_h}`; submitObj.overallResult = form3.overall;
+        }
+
+        google.script.run
+          .withSuccessHandler(() => { localStorage.removeItem(`daiki_ats_draft_${selectedCanId}`); alert(`${type}評価保存完了！`); window.location.reload(); })
+          .withFailureHandler((err) => { alert("エラー: " + err); setIsSubmitting(false); })
+          .saveInterviewResult(submitObj);
+      };
+
+      return (
+        <main className="flex-1 overflow-y-auto bg-slate-50 text-lg relative flex flex-col">
+          <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-md pt-6 md:pt-8 border-b-2 border-slate-300 shadow-md">
+            <div className="max-w-6xl mx-auto px-6 md:px-10 space-y-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-8 items-center justify-between">
+                <div className="w-full md:w-1/3">
+                  <label className="block text-sm font-bold text-slate-500 mb-1">評価対象の候補者</label>
+                  <select className="w-full p-3 border-2 rounded-xl text-lg font-black text-slate-900 bg-slate-50" value={selectedCanId} onChange={(e) => setSelectedCanId(e.target.value)}>
+                    <option value="">-- 候補者を選択 --</option>
+                    {candidates.map(c => <option key={c['応募者ID']} value={c['応募者ID']}>{c['姓']}{c['名']}</option>)}
+                  </select>
+                </div>
+                {currentCandidate && (
+                  <div className="flex-1 w-full flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 p-4 rounded-xl border">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                      <div><strong className="block text-xs text-slate-400">学歴・区分</strong><span className="text-base font-bold">{currentCandidate['大学名']} {currentCandidate['学部名']} ({currentCandidate['採用区分']})</span></div>
+                      <div><strong className="block text-xs text-slate-400">現在のステータス</strong><span className="text-xl font-black text-blue-600">{currentCandidate['現在のステータス']}</span></div>
+                    </div>
+                    <button type="button" onClick={() => setShowDetail(true)} className="w-full sm:w-auto px-5 py-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold rounded-xl text-sm shadow-sm transition-all whitespace-nowrap flex items-center justify-center gap-2">
+                      <span className="text-base">👤</span> プロフィール詳細
+                    </button>
+                  </div>
+                )}
+              </div>
+              {selectedCanId && (
+                <div className="flex bg-white px-6 pt-3 rounded-t-xl border-t-2 border-x-2 overflow-x-auto whitespace-nowrap translate-y-px">
+                  {phaseOptions.map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-3 text-lg font-extrabold mr-4 ${activeTab === tab ? 'border-b-4 border-blue-600 text-blue-600 bg-blue-50/40 rounded-t-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="max-w-6xl mx-auto w-full px-6 md:px-10 pb-10 flex-1">
+            {selectedCanId && (
+              <div className="bg-white p-6 md:p-8 rounded-b-2xl border-x-2 border-b-2 shadow-sm mt-0">
+                {pastData ? (
+                  <div className="space-y-6">
+                    <div className="bg-amber-50 border p-4 rounded-xl font-bold text-amber-800">🔒 この選考は提出済です (閲覧専用モード)</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="border p-5 rounded-xl bg-slate-50 space-y-3">
+                        <h3 className="font-extrabold text-slate-800 border-b pb-1">📊 評価・判定</h3>
+                        <div><strong>面接日:</strong> {pastData['面談・面接日']}</div>
+                        <div><strong>判定結果:</strong> <span className="font-black text-blue-600 text-xl">{pastData['総合評価結果']}</span></div>
+                      </div>
+                      <div className="border p-5 rounded-xl space-y-3">
+                        <h3 className="font-extrabold text-slate-800 border-b pb-1">📝 担当者まとめ</h3>
+                        <div className="bg-slate-50 p-3 rounded font-mono text-sm whitespace-pre-wrap">{pastData['面談担当者まとめ']}</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {activeTab === '一次面談' && (
+                      <form onSubmit={(e) => handleFormSubmit(e, '一次面談')} className="space-y-6">
+                        {/* 🌟 変更: 横並びだった確認事項と面接評価を「縦並び」に変更して広く使えるようにしました！ */}
+                        <div className="space-y-6">
+                          <div className="border p-5 rounded-xl bg-slate-50/40 space-y-4">
+                            <h3 className="font-bold text-slate-800 border-b">💡 確認事項</h3>
+                            <textarea className="w-full h-32 p-3 border rounded-xl text-base outline-none bg-white" placeholder="面談日、職種、転勤可否、希望エリアなど" value={form1.details} onChange={(e)=>setForm1({...form1, details:e.target.value})}></textarea>
+                            <textarea className="w-full h-20 p-3 border rounded-xl text-base outline-none bg-white" placeholder="当社を知ったきっかけ" value={form1.trigger} onChange={(e)=>setForm1({...form1, trigger:e.target.value})}></textarea>
+                            <textarea className="w-full h-32 p-3 border rounded-xl text-base outline-none bg-white" placeholder="学生からの質問・感想 / 備考" value={form1.notes} onChange={(e)=>setForm1({...form1, notes:e.target.value})}></textarea>
+                          </div>
+                          <div className="border p-5 rounded-xl bg-white space-y-1">
+                            <h3 className="font-bold text-slate-800 border-b pb-1">⭐ 面談評価</h3>
+                            {/* 🌟 項目名を要望通りのフルテキストに修正！ */}
+                            {ratingLabels.map(item => (
+                              <RatingRow1 key={item.key} label={item.label} value={ratings1[item.key]} onChange={(s) => setRatings1({...ratings1, [item.key]:s})} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="border-2 border-blue-100 p-6 rounded-2xl bg-blue-50/20 space-y-4">
+                          <h3 className="font-black text-blue-900 border-b pb-1">🔒 人事採用課内秘匿情報</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-base">
+                            <div><label className="block font-bold text-slate-600 mb-1">自分らしさの原点</label><textarea className="w-full h-32 p-3 border rounded-xl bg-white outline-none" value={form1.origin} onChange={(e)=>setForm1({...form1, origin:e.target.value})}></textarea></div>
+                            <div><label className="block font-bold text-slate-600 mb-1">面談者まとめ</label><textarea className="w-full h-32 p-3 border rounded-xl bg-white outline-none" value={form1.comment} onChange={(e)=>setForm1({...form1, comment:e.target.value})}></textarea></div>
+                            <div><label className="block font-bold text-slate-600 mb-1">他社就活状況</label><textarea className="w-full h-24 p-3 border rounded-xl bg-white outline-none" value={form1.status} onChange={(e)=>setForm1({...form1, status:e.target.value})}></textarea></div>
+                            <div><label className="block font-bold text-slate-600 mb-1">その他交渉材料など</label><textarea className="w-full h-24 p-3 border rounded-xl bg-white outline-none" value={form1.info} onChange={(e)=>setForm1({...form1, info:e.target.value})}></textarea></div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center justify-between border-t pt-4 gap-4">
+                          <div className="flex gap-6 font-black text-slate-800">
+                            {[['ok','合格'], ['hold','再考察'], ['ng','不合格']].map(([v, l]) => (
+                              <label key={v} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="f1-res" value={v} className="w-5 h-5 text-blue-600" onChange={(e)=>setForm1({...form1, overall:e.target.value})}/> {l}</label>
+                            ))}
+                          </div>
+                          <div className="flex gap-3 w-full sm:w-auto">
+                            <button type="button" onClick={handleSaveDraft} className="flex-1 sm:flex-none px-6 py-3 bg-slate-200 font-bold rounded-xl text-base">💾 一時保存</button>
+                            <button type="submit" disabled={!form1.overall||isSubmitting} className="flex-1 sm:flex-none px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-base disabled:bg-slate-300 shadow-md">評価を登録する</button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
+
+                    {activeTab === '二次選考' && (
+                      <form onSubmit={(e) => handleFormSubmit(e, '二次選考')} className="space-y-6 pb-44">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-xl bg-slate-50 text-base">
+                          <div><label className="block font-bold mb-1">受験日</label><input type="date" className="w-full p-2 border rounded-lg font-bold" value={form2.date} onChange={(e)=>setForm2({...form2, date:e.target.value})}/></div>
+                          <div><label className="block font-bold mb-1">面接官【事業部】</label><input type="text" className="w-full p-2 border rounded-lg" placeholder="部署・氏名" value={form2.m1} onChange={(e)=>setForm2({...form2, m1:e.target.value})}/></div>
+                          <div><label className="block font-bold mb-1">面接官【戦略推進部】</label><input type="text" className="w-full p-2 border rounded-lg" placeholder="氏名" value={form2.m2} onChange={(e)=>setForm2({...form2, m2:e.target.value})}/></div>
+                        </div>
+                        <div className="space-y-4">
+                          <MustItemSelector title="① PROTECT×CHANGE（チャレンジ精神）" placeholderName="PROTECT×CHANGE" scoreLabels={scoreDefs.p1} valJob={form2.p1} valStr={form2.s1} onChangeJob={(s)=>setForm2({...form2, p1:s})} onChangeStr={(s)=>setForm2({...form2, s1:s})} txtValue={form2.p1_txt} onTxtChange={(txt)=>setForm2({...form2, p1_txt:txt})} />
+                          <MustItemSelector title="② 自ら動く（主体性）" placeholderName="自ら動く" scoreLabels={scoreDefs.p2} valJob={form2.p2} valStr={form2.s2} onChangeJob={(s)=>setForm2({...form2, p2:s})} onChangeStr={(s)=>setForm2({...form2, s2:s})} txtValue={form2.p2_txt} onTxtChange={(txt)=>setForm2({...form2, p2_txt:txt})} />
+                          <MustItemSelector title="③ スッテモムイデモ（粘り強さ）" placeholderName="スッテモムイデモ" scoreLabels={scoreDefs.p3} valJob={form2.p3} valStr={form2.s3} onChangeJob={(s)=>setForm2({...form2, p3:s})} onChangeStr={(s)=>setForm2({...form2, s3:s})} txtValue={form2.p3_txt} onTxtChange={(txt)=>setForm2({...form2, p3_txt:txt})} />
+                        </div>
+                        <div className="border p-6 rounded-2xl bg-white space-y-4">
+                          <h3 className="text-xl font-bold text-slate-800 border-b pb-1">➕ 加点項目</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-base">
+                            {['レスポンス・コミュニケーション','成長意欲','責任感','真面目','ユーモア(表現力)','積極的','真摯さ','謙虚な姿勢','前向きさ','チームワーク','変化に気が付く対応する','その他'].map(k => (
+                              <div key={k} className="p-4 border rounded-xl bg-slate-50/50 space-y-2">
+                                <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+                                  <input type="checkbox" className="w-5 h-5" checked={bonus2[k]?.checked||false} onChange={(e)=>setBonus2({...bonus2, [k]:{...bonus2[k], checked:e.target.checked}})}/>
+                                  <span>{k}</span>
+                                </label>
+                                {bonus2[k]?.checked && <textarea className="w-full h-24 p-2 border rounded-lg bg-white text-sm" placeholder="具体的な加点コメント" value={bonus2[k]?.txt||''} onChange={(e)=>setBonus2({...bonus2, [k]:{...bonus2[k], txt:e.target.value}})}></textarea>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="border p-6 rounded-2xl bg-slate-50 space-y-4">
+                          <h3 className="text-xl font-bold text-slate-800">人事（戦略推進部）まとめ</h3>
+                          <div className="space-y-4 text-base">
+                            <div><label className="block font-bold text-slate-600 mb-1">● ポジティブ要素</label><textarea className="w-full h-28 p-3 border rounded-xl bg-white" value={form2.pos} onChange={(e)=>setForm2({...form2, pos:e.target.value})}></textarea></div>
+                            <div><label className="block font-bold text-slate-600 mb-1">● ネガティブ要素</label><textarea className="w-full h-28 p-3 border rounded-xl bg-white" value={form2.neg} onChange={(e)=>setForm2({...form2, neg:e.target.value})}></textarea></div>
+                            <div><label className="block font-bold text-slate-600 mb-1">● その他所感</label><textarea className="w-full h-28 p-3 border rounded-xl bg-white" value={form2.view} onChange={(e)=>setForm2({...form2, view:e.target.value})}></textarea></div>
+                          </div>
+                        </div>
+                        <div className="fixed bottom-6 right-6 left-6 md:left-[17rem] z-30 bg-slate-900 text-white p-5 rounded-2xl border-2 border-slate-700 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="flex gap-6 text-base">
+                            <div>マスト合計: <span className="text-2xl font-mono font-bold text-blue-400">{mScore}</span>/30点</div>
+                            <div>加点数: <span className="text-2xl font-mono font-bold text-green-400">{bCount}</span>個</div>
+                            <div>判定: <span className="text-2xl font-black text-yellow-400">{autoResult}</span></div>
+                          </div>
+                          <div className="flex gap-3 w-full sm:w-auto">
+                            <button type="button" onClick={handleSaveDraft} className="flex-1 sm:flex-none px-5 py-2.5 bg-slate-700 font-bold rounded-xl text-sm">💾 一時保存</button>
+                            <button type="submit" disabled={autoResult==='判定中'||isSubmitting} className="flex-1 sm:flex-none px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm disabled:bg-slate-500">評価提出</button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
+
+                    {activeTab === '最終選考' && (
+                      <form onSubmit={(e) => handleFormSubmit(e, '最終選考')} className="space-y-6">
+                        {[['🤝 1. 理念共感度', 'r1_p', 'r1_h', '志望理由に理念への共感が入っているか'], ['💎 2. 魅力点', 'r2_p', 'r2_h', '学生のどのような価値観に共感できたか'], ['🚀 3. 期待点', 'r3_p', 'r3_h', '活躍する姿を想像できたか'], ['📈 4. 課題点', 'r4_p', 'r4_h', '今後もっと成長が必要なポイント'], ['📎 5. その他', 'r5_p', 'r5_h', '特記事項']].map(([title, pk, hk, desc]) => (
+                          <div key={title} className="bg-slate-50 p-6 rounded-2xl border">
+                            <label className="block font-black text-slate-900 text-xl mb-1">{title}</label>
+                            <p className="text-xs text-slate-400 mb-4">{desc}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-base">
+                              <div><div className="font-bold text-blue-800 text-sm mb-1">👔 社長 コメント</div><textarea className="w-full h-32 p-3 border rounded-xl bg-white outline-none focus:border-blue-500" value={form3[pk]} onChange={(e)=>setForm3({...form3, [pk]:e.target.value})}></textarea></div>
+                              <div><div className="font-bold text-purple-800 text-sm mb-1">👤 HR管掌役員 コメント</div><textarea className="w-full h-32 p-3 border rounded-xl bg-white outline-none focus:border-purple-500" value={form3[hk]} onChange={(e)=>setForm3({...form3, [hk]:e.target.value})}></textarea></div>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex flex-col sm:flex-row items-center justify-between border-t pt-4 gap-4">
+                          <div className="flex gap-6 font-black text-slate-800">
+                            {[['ok','合格'], ['hold','再考察'], ['ng','不合格']].map(([v, l]) => (
+                              <label key={v} className="flex items-center gap-2 cursor-pointer"><input type="radio" name="f3-res" value={v} className="w-5 h-5 text-blue-600" onChange={(e)=>setForm3({...form3, overall:e.target.value})}/> {l}</label>
+                            ))}
+                          </div>
+                          <div className="flex gap-3 w-full sm:w-auto">
+                            <button type="button" onClick={handleSaveDraft} className="flex-1 sm:flex-none px-6 py-3 bg-slate-200 font-bold rounded-xl text-base">💾 一時保存</button>
+                            <button type="submit" disabled={!form3.overall||isSubmitting} className="flex-1 sm:flex-none px-10 py-3 bg-blue-600 text-white font-bold rounded-xl text-base disabled:bg-slate-300 shadow-md">結果を確定登録</button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {showDetail && currentCandidate && (
+            <CandidateDetailModal 
+              candidate={currentCandidate} 
+              onClose={() => setShowDetail(false)} 
+              onSave={() => { setShowDetail(false); refreshData(); }} 
+              selectionStatuses={selectionStatuses} 
+              jobs={jobs} 
+              channels={channels} 
+            />
+          )}
+        </main>
+      );
+    };
+
+    function App() {
+      const [activePage, setActivePage] = React.useState('dashboard');
+      const [dbData, setDbData] = React.useState(null);
+      const loadData = () => { google.script.run.withSuccessHandler(setDbData).getSpreadsheetData(); };
+      React.useEffect(() => { loadData(); }, []);
+
+      if (!dbData) return (
+        <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-900 text-white"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"></div><p className="text-xs text-slate-400">最新データをスプシと同期中...</p></div>
+      );
+
+      return (
+        <div className="flex h-screen bg-slate-50 text-slate-800 font-sans w-full overflow-hidden">
+          <Sidebar activePage={activePage} setActivePage={setActivePage} />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0"><span className="font-bold text-xl text-slate-800">ダイキアクシスATS</span></header>
+            {activePage === 'dashboard' && <DashboardView setActivePage={setActivePage} />}
+            {activePage === 'candidates' && <CandidatesView data={dbData.candidates} refreshData={loadData} jobs={dbData.jobs} channels={dbData.channels} selectionStatuses={dbData.selectionStatuses} />}
+            {activePage === 'interview' && <InterviewView candidate={null} candidates={dbData.candidates} systemMaster={dbData.systemMaster} history={dbData.history} setActivePage={setActivePage} selectionStatuses={dbData.selectionStatuses} jobs={dbData.jobs} channels={dbData.channels} refreshData={loadData} />}
+            {activePage === 'jobs' && <JobsView data={dbData.jobs} refreshData={loadData} systemMaster={dbData.systemMaster} />}
+            {activePage === 'channels' && <ChannelsView data={dbData.channels} refreshData={loadData} systemMaster={dbData.systemMaster} />}
+            {activePage === 'system-master' && <SystemMasterView systemData={dbData.systemMaster} selectionData={dbData.selectionStatuses} refreshData={loadData} />}
+            {activePage === 'settings' && <SettingsView settings={dbData.settings} />}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
